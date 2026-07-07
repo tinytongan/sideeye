@@ -5,6 +5,8 @@ import { centsToAud } from "../lib/types";
 import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import TransactionsModal from "./TransactionsModal";
 import { assessOverdraftRisk, detectRecurring, type OverdraftRisk } from "../lib/recurring";
+import ReviewFlowModal from "./ReviewFlowModal";
+import { reviewDue } from "../lib/reviews";
 
 type Mode = "expense" | "income" | "net";
 
@@ -38,6 +40,8 @@ export default function DashboardScreen() {
   const [openCat, setOpenCat] = useState<CatRow | null>(null);
   const [openAll, setOpenAll] = useState(false);
   const [risks, setRisks] = useState<OverdraftRisk[]>([]);
+  const [dueReview, setDueReview] = useState<"weekly" | "monthly" | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
@@ -46,7 +50,7 @@ export default function DashboardScreen() {
     const from = iso(month);
     const to = iso(nextMonth);
 
-    const [txnRes, acctRes, reviewRes, settingsRes, catRes, allTxnRes] = await Promise.all([
+    const [txnRes, acctRes, reviewRes, settingsRes, catRes, allTxnRes, sessRes] = await Promise.all([
       supabase
         .from("transactions")
         .select("amount_cents, category_id")
@@ -63,6 +67,7 @@ export default function DashboardScreen() {
         .select("account_id, amount_cents, posted_at, description")
         .order("posted_at", { ascending: false })
         .limit(3000),
+      supabase.from("review_sessions").select("kind, period_start").not("completed_at", "is", null),
     ]);
 
     const catById = new Map((catRes.data ?? []).map((c) => [c.id, c]));
@@ -123,6 +128,11 @@ export default function DashboardScreen() {
       const risk = assessOverdraftRisk(a.name, a.balance_cents, rec);
       if (risk) riskList.push(risk);
     }
+
+    const done = (sessRes.data ?? []) as { kind: "weekly" | "monthly"; period_start: string }[];
+    if (reviewDue("monthly", done.filter((d) => d.kind === "monthly"))) setDueReview("monthly");
+    else if (reviewDue("weekly", done.filter((d) => d.kind === "weekly"))) setDueReview("weekly");
+    else setDueReview(null);
 
     setRisks(riskList);
     setTotals({ income, spend });
@@ -215,6 +225,17 @@ export default function DashboardScreen() {
             </View>
           ))}
 
+          {/* Review due */}
+          {dueReview && (
+            <Pressable onPress={() => setReviewOpen(true)}
+              style={({ pressed }) => [styles.card, styles.dueCard, pressed && styles.pressed]}>
+              <Text style={styles.dueTitle}>
+                {MASCOTS[snark].emoji} {dueReview === "weekly" ? "Weekly" : "Monthly"} review time
+              </Text>
+              <Text style={styles.dueSub}>“{say("review_prompt_weekly", snark)}” — 5 questions, 3 minutes ›</Text>
+            </Pressable>
+          )}
+
           {/* Month-end position for the selected month */}
           {selNetIdx >= 0 && (
             <View style={styles.card}>
@@ -304,6 +325,12 @@ export default function DashboardScreen() {
             from={iso(month)}
             to={iso(nextMonth)}
           />
+          <ReviewFlowModal
+            visible={reviewOpen}
+            kind={dueReview ?? "weekly"}
+            snark={snark}
+            onClose={(completed) => { setReviewOpen(false); if (completed) load(); }}
+          />
           <TransactionsModal
             visible={openAll}
             onClose={() => { setOpenAll(false); load(); }}
@@ -340,6 +367,9 @@ const styles = StyleSheet.create({
   riskTitle: { color: "#ff8787", fontSize: 14, fontWeight: "700", lineHeight: 20 },
   riskItem: { color: "#8b90a5", fontSize: 12, marginTop: 6 },
   riskShortfall: { color: "#ff6b6b", fontSize: 13, fontWeight: "800", marginTop: 8 },
+  dueCard: { borderColor: "#ffd43b", borderWidth: 1 },
+  dueTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
+  dueSub: { color: "#8b90a5", fontSize: 13, marginTop: 4, fontStyle: "italic" },
   cardLabel: { color: "#8b90a5", fontSize: 13 },
   cardValue: { color: "#fff", fontSize: 26, fontWeight: "700", marginTop: 4 },
   acctRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },

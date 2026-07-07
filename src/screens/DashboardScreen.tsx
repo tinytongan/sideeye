@@ -3,10 +3,11 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { supabase } from "../lib/supabase";
 import { centsToAud } from "../lib/types";
 import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
+import TransactionsModal from "./TransactionsModal";
 
 type Mode = "expense" | "income" | "net";
 
-interface CatRow { name: string; emoji: string | null; total_cents: number }
+interface CatRow { id: string | "uncat"; name: string; emoji: string | null; total_cents: number }
 interface MonthTotals { income: number; spend: number }
 interface AcctInfo { id: string; name: string; kind: string; balance_cents: number | null }
 interface MonthNet { label: string; perAccount: { name: string; kind: string; cents: number }[]; net: number }
@@ -33,6 +34,8 @@ export default function DashboardScreen() {
   const [reviewCount, setReviewCount] = useState(0);
   const [snark, setSnark] = useState<SnarkLevel>("wombat");
   const [loading, setLoading] = useState(true);
+  const [openCat, setOpenCat] = useState<CatRow | null>(null);
+  const [openAll, setOpenAll] = useState(false);
 
   const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
@@ -78,6 +81,7 @@ export default function DashboardScreen() {
     }
     const rows: CatRow[] = [...byCat.entries()]
       .map(([id, total_cents]) => ({
+        id: id as string | "uncat",
         name: id === "uncat" ? "Uncategorised" : catById.get(id)?.name ?? "?",
         emoji: id === "uncat" ? "❓" : catById.get(id)?.emoji ?? null,
         total_cents,
@@ -244,15 +248,37 @@ export default function DashboardScreen() {
           {/* Category breakdown */}
           <Text style={styles.section}>Where it went</Text>
           {cats.map((c) => (
-            <View key={c.name} style={styles.catRow}>
+            <Pressable key={c.name} onPress={() => setOpenCat(c)}
+              style={({ pressed }) => [styles.catRow, pressed && styles.rowPressed]}>
               <Text style={styles.catEmoji}>{c.emoji ?? "·"}</Text>
               <View style={styles.catMid}>
                 <Text style={styles.catName}>{c.name}</Text>
                 <View style={[styles.bar, { width: `${Math.max(4, (c.total_cents / maxCat) * 100)}%` }]} />
               </View>
               <Text style={styles.catAmt}>{centsToAud(c.total_cents)}</Text>
-            </View>
+            </Pressable>
           ))}
+          <Pressable onPress={() => setOpenAll(true)}
+            style={({ pressed }) => [styles.allBtn, pressed && styles.pressed]}>
+            <Text style={styles.allBtnText}>All transactions ›</Text>
+          </Pressable>
+
+          <TransactionsModal
+            visible={openCat !== null}
+            onClose={() => { setOpenCat(null); load(); }}
+            title={openCat ? `${openCat.emoji ?? ""} ${openCat.name} — ${monthLabel(month)}` : ""}
+            categoryId={openCat?.id ?? null}
+            from={iso(month)}
+            to={iso(nextMonth)}
+          />
+          <TransactionsModal
+            visible={openAll}
+            onClose={() => { setOpenAll(false); load(); }}
+            title={`All transactions — ${monthLabel(month)}`}
+            categoryId={null}
+            from={iso(month)}
+            to={iso(nextMonth)}
+          />
           {cats.length === 0 && <Text style={styles.empty}>No spending this month. Suspicious.</Text>}
         </>
       )}
@@ -300,4 +326,7 @@ const styles = StyleSheet.create({
   bar: { height: 5, borderRadius: 3, backgroundColor: "#7c83ff" },
   catAmt: { color: "#8b90a5", fontSize: 13, fontVariant: ["tabular-nums"] },
   empty: { color: "#565b73", textAlign: "center", marginTop: 20 },
+  rowPressed: { backgroundColor: "#1c1f2e", borderRadius: 8 },
+  allBtn: { alignSelf: "center", marginTop: 14, padding: 10 },
+  allBtnText: { color: "#7c83ff", fontSize: 14, fontWeight: "700" },
 });

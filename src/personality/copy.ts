@@ -3,6 +3,18 @@
 
 export type SnarkLevel = "quokka" | "wombat" | "bin_chicken" | "tassie_devil";
 
+const VALID_LEVELS = new Set(["quokka", "wombat", "bin_chicken", "tassie_devil"]);
+
+/** Coerce anything (incl. corrupted persisted values like '"quokka"') to a
+ * valid SnarkLevel. The app must NEVER crash on a bad stored setting. */
+export function asSnark(v: unknown): SnarkLevel {
+  if (typeof v === "string") {
+    const cleaned = v.replace(/["\\]/g, "").trim();
+    if (VALID_LEVELS.has(cleaned)) return cleaned as SnarkLevel;
+  }
+  return "wombat";
+}
+
 export type CopyEvent =
   | "greeting_morning"
   | "overdraft_warning"

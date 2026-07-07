@@ -11,7 +11,8 @@ import ExportScreen from "./src/screens/ExportScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import CelebrationOverlay from "./src/components/CelebrationOverlay";
 import { syncNewUnlocks, type AchievementState } from "./src/lib/achievements";
-import type { SnarkLevel } from "./src/personality/copy";
+import { asSnark, type SnarkLevel } from "./src/personality/copy";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 type Tab = "dashboard" | "review" | "budgets" | "export" | "settings";
 const TABS: { key: Tab; label: string; icon: string }[] = [
@@ -41,7 +42,7 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     supabase.from("settings").select("value").eq("key", "snark_level").maybeSingle()
-      .then(({ data }) => { if (data?.value) setSnark(data.value as SnarkLevel); });
+      .then(({ data }) => { if (data?.value) setSnark(asSnark(data.value)); });
     syncNewUnlocks().then((fresh) => { if (fresh.length > 0) setUnlocks(fresh); });
   }, [session]);
 
@@ -64,6 +65,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <View style={styles.root}>
       <View style={styles.body}>
         {tab === "dashboard" && <DashboardScreen goSettings={() => setTab("settings")} />}
@@ -85,6 +87,7 @@ export default function App() {
       )}
       <StatusBar style="light" />
     </View>
+    </ErrorBoundary>
   );
 }
 

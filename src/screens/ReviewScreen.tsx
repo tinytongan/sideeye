@@ -9,7 +9,7 @@ import {
   COMBO_WINDOW_MS, loadGameStats, REACTIONS, RUSH_SECONDS, saveGameStats, scoreFor,
 } from "../lib/game";
 import { centsToAud, type Category } from "../lib/types";
-import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
+import { asSnark, MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import { MASCOT_ART } from "../personality/art";
 
 interface QueueTxn {
@@ -62,7 +62,7 @@ export default function ReviewScreen() {
     setQueue(q);
     setSessionStart((s) => (s === 0 ? q.length : s));
     setCats((catRes.data ?? []) as Category[]);
-    if (snarkRes.data?.value) setSnark(snarkRes.data.value as SnarkLevel);
+    if (snarkRes.data?.value) setSnark(asSnark(snarkRes.data.value));
     setPoints(stats.points);
     setBestCombo(stats.bestCombo);
     setRushBest(stats.rushBest);

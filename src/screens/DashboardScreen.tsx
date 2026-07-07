@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { supabase } from "../lib/supabase";
 import { centsToAud } from "../lib/types";
-import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
+import { asSnark, MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import TransactionsModal from "./TransactionsModal";
 import { assessOverdraftRisk, detectRecurring, type OverdraftRisk } from "../lib/recurring";
 import ReviewFlowModal from "./ReviewFlowModal";
@@ -173,7 +173,7 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
     setNetWorth(nw);
     setMonthNets(nets);
     setReviewCount(reviewRes.count ?? 0);
-    if (settingsRes.data?.value) setSnark(settingsRes.data.value as SnarkLevel);
+    if (settingsRes.data?.value) setSnark(asSnark(settingsRes.data.value));
     setLoading(false);
   }, [month]);
 

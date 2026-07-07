@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
 import { centsToAud, type AccountKind } from "../lib/types";
-import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
+import { asSnark, MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import { computeAchievements, type AchievementState } from "../lib/achievements";
 import { MASCOT_ART } from "../personality/art";
 
@@ -30,7 +30,7 @@ export default function SettingsScreen() {
       supabase.from("streaks").select("*"),
       computeAchievements(),
     ]);
-    if (snarkRes.data?.value) setSnark(snarkRes.data.value as SnarkLevel);
+    if (snarkRes.data?.value) setSnark(asSnark(snarkRes.data.value));
     setAccts((acctRes.data ?? []) as ManualAcct[]);
     setStreaks((streakRes.data ?? []) as { id: string; current: number; best: number }[]);
     setAchievements(achStates);
@@ -42,7 +42,7 @@ export default function SettingsScreen() {
   const pickSnark = async (l: SnarkLevel) => {
     setSnark(l);
     setSample(say("greeting_morning", l));
-    await supabase.from("settings").upsert({ key: "snark_level", value: JSON.stringify(l) as unknown as object });
+    await supabase.from("settings").upsert({ key: "snark_level", value: l as unknown as object });
   };
 
   const addAccount = async () => {

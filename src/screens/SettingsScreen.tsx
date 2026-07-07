@@ -6,6 +6,7 @@ import { asSnark, MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import { computeAchievements, type AchievementState } from "../lib/achievements";
 import { MASCOT_ART } from "../personality/art";
 import { BUILD } from "../buildInfo";
+import BanksSection from "../components/BanksSection";
 
 const LEVELS: SnarkLevel[] = ["quokka", "wombat", "bin_chicken", "tassie_devil"];
 
@@ -88,6 +89,8 @@ export default function SettingsScreen() {
         );
       })}
       {sample && <Text style={styles.sample}>“{sample}”</Text>}
+
+      <BanksSection onDataChanged={load} />
 
       {/* Super & investments */}
       <Text style={styles.section}>Super & investments</Text>

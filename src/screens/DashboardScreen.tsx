@@ -40,9 +40,6 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
   const [openAll, setOpenAll] = useState(false);
   const [risks, setRisks] = useState<OverdraftRisk[]>([]);
   const [dueReview, setDueReview] = useState<"weekly" | "monthly" | null>(null);
-  const [bankConnected, setBankConnected] = useState(true); // assume until checked
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [alertsOn, setAlertsOn] = useState(() => pushEnabled());
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
@@ -121,7 +118,6 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
     setPace(worstPace);
 
     const accts = (acctRes.data ?? []) as (AcctInfo & { include_in_net_worth: boolean; source?: string })[];
-    setBankConnected(accts.some((a: any) => a.source === "basiq"));
     const nw = accts
       .filter((a) => a.include_in_net_worth && a.balance_cents !== null)
       .reduce((s, a) => s + (a.balance_cents ?? 0), 0);
@@ -196,31 +192,6 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
     }
     return say("greeting_morning", snark);
   }, [pace, snark, month]);
-
-  const connectBank = async () => {
-    setSyncing(true);
-    const { data, error } = await supabase.functions.invoke("basiq-consent");
-    setSyncing(false);
-    if (error || !data?.url) { setSyncMsg("Couldn't get a consent link. Poke Claude."); return; }
-    window.open(data.url, "_blank");
-    setSyncMsg("Finish connecting in the Basiq tab — I'll sync automatically when you come back.");
-    // when this tab regains focus, attempt the first sync
-    const onFocus = () => {
-      window.removeEventListener("focus", onFocus);
-      syncNow();
-    };
-    window.addEventListener("focus", onFocus);
-  };
-
-  const syncNow = async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-    const { data, error } = await supabase.functions.invoke("basiq-sync", { method: "POST" });
-    setSyncing(false);
-    if (error) { setSyncMsg("Sync failed. Poke Claude."); return; }
-    setSyncMsg(`Synced: ${data.inserted} new transaction(s) from ${data.accounts} account(s).`);
-    load();
-  };
 
   const turnOnAlerts = async () => {
     const res = await enablePush();
@@ -310,30 +281,6 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
               </Text>
             </View>
           ))}
-
-          {/* Bank connection */}
-          <View style={[styles.card, styles.bankCard]}>
-            {!bankConnected ? (
-              <>
-                <Pressable onPress={connectBank} disabled={syncing}
-                  style={({ pressed }) => [pressed && styles.pressed]}>
-                  <Text style={styles.bankTitle}>{syncing ? "⟳ Working…" : "🔗 Connect your bank"}</Text>
-                  <Text style={styles.bankSub}>Live transaction feeds via Basiq (CDR) — no more CSV exports ›</Text>
-                </Pressable>
-                <Pressable onPress={syncNow} disabled={syncing}
-                  style={({ pressed }) => [pressed && styles.pressed]}>
-                  <Text style={styles.bankAlt}>Already connected? Sync now ›</Text>
-                </Pressable>
-              </>
-            ) : (
-              <Pressable onPress={syncNow} disabled={syncing}
-                style={({ pressed }) => [pressed && styles.pressed]}>
-                <Text style={styles.bankTitle}>{syncing ? "⟳ Syncing…" : "⟳ Sync bank feed"}</Text>
-                <Text style={styles.bankSub}>Also runs automatically every morning at 6am</Text>
-              </Pressable>
-            )}
-            {syncMsg && <Text style={styles.bankMsg}>{syncMsg}</Text>}
-          </View>
 
           {/* Overdraft push alerts */}
           {pushSupported() && !alertsOn && (
@@ -515,12 +462,9 @@ const styles = StyleSheet.create({
   dueCard: { borderColor: "#ffd43b", borderWidth: 1 },
   dueTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
   dueSub: { color: "#8b90a5", fontSize: 13, marginTop: 4, fontStyle: "italic" },
-  bankCard: { borderColor: "#51cf66", borderWidth: 1 },
-  bankTitle: { color: "#51cf66", fontSize: 15, fontWeight: "800" },
+  alertCard: { borderColor: "#ffd43b", borderWidth: 1 },
   bankSub: { color: "#8b90a5", fontSize: 13, marginTop: 4 },
   bankMsg: { color: "#e8e9f0", fontSize: 13, marginTop: 8 },
-  bankAlt: { color: "#51cf66", fontSize: 13, marginTop: 10, textDecorationLine: "underline" },
-  alertCard: { borderColor: "#ffd43b", borderWidth: 1 },
   alertTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
   staleCard: { borderColor: "#ffd43b", borderWidth: 1 },
   staleTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },

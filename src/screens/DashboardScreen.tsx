@@ -172,7 +172,13 @@ export default function DashboardScreen() {
     setSyncing(false);
     if (error || !data?.url) { setSyncMsg("Couldn't get a consent link. Poke Claude."); return; }
     window.open(data.url, "_blank");
-    setSyncMsg("Finish connecting in the Basiq tab, then hit Sync.");
+    setSyncMsg("Finish connecting in the Basiq tab — I'll sync automatically when you come back.");
+    // when this tab regains focus, attempt the first sync
+    const onFocus = () => {
+      window.removeEventListener("focus", onFocus);
+      syncNow();
+    };
+    window.addEventListener("focus", onFocus);
   };
 
   const syncNow = async () => {
@@ -251,11 +257,17 @@ export default function DashboardScreen() {
           {/* Bank connection */}
           <View style={[styles.card, styles.bankCard]}>
             {!bankConnected ? (
-              <Pressable onPress={connectBank} disabled={syncing}
-                style={({ pressed }) => [pressed && styles.pressed]}>
-                <Text style={styles.bankTitle}>🔗 Connect your bank</Text>
-                <Text style={styles.bankSub}>Live transaction feeds via Basiq (CDR) — no more CSV exports ›</Text>
-              </Pressable>
+              <>
+                <Pressable onPress={connectBank} disabled={syncing}
+                  style={({ pressed }) => [pressed && styles.pressed]}>
+                  <Text style={styles.bankTitle}>{syncing ? "⟳ Working…" : "🔗 Connect your bank"}</Text>
+                  <Text style={styles.bankSub}>Live transaction feeds via Basiq (CDR) — no more CSV exports ›</Text>
+                </Pressable>
+                <Pressable onPress={syncNow} disabled={syncing}
+                  style={({ pressed }) => [pressed && styles.pressed]}>
+                  <Text style={styles.bankAlt}>Already connected? Sync now ›</Text>
+                </Pressable>
+              </>
             ) : (
               <Pressable onPress={syncNow} disabled={syncing}
                 style={({ pressed }) => [pressed && styles.pressed]}>
@@ -415,6 +427,7 @@ const styles = StyleSheet.create({
   bankTitle: { color: "#51cf66", fontSize: 15, fontWeight: "800" },
   bankSub: { color: "#8b90a5", fontSize: 13, marginTop: 4 },
   bankMsg: { color: "#e8e9f0", fontSize: 13, marginTop: 8 },
+  bankAlt: { color: "#51cf66", fontSize: 13, marginTop: 10, textDecorationLine: "underline" },
   cardLabel: { color: "#8b90a5", fontSize: 13 },
   cardValue: { color: "#fff", fontSize: 26, fontWeight: "700", marginTop: 4 },
   acctRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },

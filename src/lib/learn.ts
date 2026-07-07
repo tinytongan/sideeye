@@ -1,44 +1,50 @@
-// Turns a user categorisation into a reusable rule + applies it to lookalikes.
+// Categorisation actions + rule learning, with undo support.
 import { supabase } from "./supabase";
 import { normaliseDescription } from "./ingest";
 
 /** Merchant signature: first 1-2 digit-free tokens of the normalised
- * description. "WOOLWORTHS 3130 MULGRAVE AUS" → "WOOLWORTHS",
- * "SQ TROUBLEMAKER SYD" → "SQ TROUBLEMAKER". */
+ * description. "AUSPOST MULGRAVE VIC" → "AUSPOST". */
 export function merchantSignature(description: string): string | null {
   const tokens = normaliseDescription(description)
     .split(" ")
     .filter((t) => t.length > 1 && !/\d/.test(t));
   if (tokens.length === 0) return null;
-  // One long distinctive token is enough; otherwise take two.
   return tokens[0].length >= 6 ? tokens[0] : tokens.slice(0, 2).join(" ");
 }
 
-/** Categorise a transaction from user feedback, learn a rule from it, and
- * apply that rule to every other queued transaction that matches.
- * Returns how many extra transactions the new rule cleared. */
-export async function categoriseAndLearn(
-  txnId: string,
-  description: string,
-  categoryId: string
-): Promise<number> {
+export interface CategoriseAction {
+  txnId: string;
+  ruleId: string | null;     // rule created (if "all from merchant")
+  clearedIds: string[];      // lookalikes the rule also categorised
+}
+
+/** Categorise ONE transaction only. No rule learned — the next transaction
+ * from this merchant still comes to the queue (passports vs postage). */
+export async function categoriseOne(txnId: string, categoryId: string): Promise<CategoriseAction> {
   await supabase
     .from("transactions")
     .update({ category_id: categoryId, category_confidence: null, needs_review: false })
     .eq("id", txnId);
+  return { txnId, ruleId: null, clearedIds: [] };
+}
+
+/** Categorise this transaction AND learn a rule for the merchant, applying
+ * it to every queued lookalike. */
+export async function categoriseAndLearn(
+  txnId: string,
+  description: string,
+  categoryId: string
+): Promise<CategoriseAction> {
+  await categoriseOne(txnId, categoryId);
 
   const sig = merchantSignature(description);
-  if (!sig) return 0;
+  if (!sig) return { txnId, ruleId: null, clearedIds: [] };
 
-  await supabase.from("category_rules").insert({
-    match_type: "contains",
-    pattern: sig,
-    category_id: categoryId,
-    priority: 10, // user-taught rules beat seeded ones
-    learned_from: txnId,
-  });
+  const { data: rule } = await supabase
+    .from("category_rules")
+    .insert({ match_type: "contains", pattern: sig, category_id: categoryId, priority: 10, learned_from: txnId })
+    .select("id").single();
 
-  // Clear lookalikes still in the queue.
   const { data: matches } = await supabase
     .from("transactions")
     .select("id, description")
@@ -53,5 +59,17 @@ export async function categoriseAndLearn(
       .update({ category_id: categoryId, category_confidence: 0.95, needs_review: false })
       .in("id", ids);
   }
-  return ids.length;
+  return { txnId, ruleId: rule?.id ?? null, clearedIds: ids };
+}
+
+/** Fully revert a categorisation action (transaction, rule, lookalikes). */
+export async function undoCategorisation(a: CategoriseAction): Promise<void> {
+  const revert = { category_id: null, category_confidence: null, needs_review: true };
+  await supabase.from("transactions").update(revert).eq("id", a.txnId);
+  if (a.clearedIds.length > 0) {
+    await supabase.from("transactions").update(revert).in("id", a.clearedIds);
+  }
+  if (a.ruleId) {
+    await supabase.from("category_rules").delete().eq("id", a.ruleId);
+  }
 }

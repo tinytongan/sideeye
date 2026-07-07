@@ -13,6 +13,7 @@ import CelebrationOverlay from "./src/components/CelebrationOverlay";
 import { syncNewUnlocks, type AchievementState } from "./src/lib/achievements";
 import { asSnark, type SnarkLevel } from "./src/personality/copy";
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import UpdateBanner from "./src/components/UpdateBanner";
 
 type Tab = "dashboard" | "review" | "budgets" | "export" | "settings";
 const TABS: { key: Tab; label: string; icon: string }[] = [
@@ -85,6 +86,7 @@ export default function App() {
       {unlocks.length > 0 && (
         <CelebrationOverlay unlocks={unlocks} snark={snark} onDone={() => setUnlocks([])} />
       )}
+      <UpdateBanner />
       <StatusBar style="light" />
     </View>
     </ErrorBoundary>

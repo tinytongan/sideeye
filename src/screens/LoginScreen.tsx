@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
+import { MASCOT_ART } from "../personality/art";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.logo}>👀</Text>
+      <Image source={MASCOT_ART.wombat} style={styles.logoArt} />
       <Text style={styles.title}>SideEye</Text>
       <Text style={styles.sub}>Your money is being judged. Log in to watch.</Text>
       <TextInput
@@ -39,7 +40,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: "#14161f", alignItems: "center", justifyContent: "center", padding: 28 },
-  logo: { fontSize: 56 },
+  logoArt: { width: 110, height: 110 },
   title: { color: "#fff", fontSize: 30, fontWeight: "800", marginTop: 8 },
   sub: { color: "#8b90a5", fontSize: 14, marginTop: 6, marginBottom: 28, textAlign: "center" },
   input: {

@@ -1,6 +1,8 @@
 // Last line of defence: a crash anywhere renders a recovery screen
 // instead of a white void.
 import { Component, type ReactNode } from "react";
+import { supabase } from "../lib/supabase";
+import { BUILD } from "../buildInfo";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface State { error: Error | null }
@@ -10,6 +12,18 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    // self-report — best effort, never throw from here
+    try {
+      supabase.from("client_errors").insert({
+        message: String(error?.message ?? error).slice(0, 500),
+        stack: `${error?.stack ?? ""}\n--component--\n${info?.componentStack ?? ""}`.slice(0, 4000),
+        build: BUILD,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null,
+      }).then(() => {});
+    } catch { /* reporting must never crash the crash screen */ }
   }
 
   render() {

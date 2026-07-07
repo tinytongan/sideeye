@@ -5,6 +5,7 @@ import { centsToAud, type AccountKind } from "../lib/types";
 import { asSnark, MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import { computeAchievements, type AchievementState } from "../lib/achievements";
 import { MASCOT_ART } from "../personality/art";
+import { BUILD } from "../buildInfo";
 
 const LEVELS: SnarkLevel[] = ["quokka", "wombat", "bin_chicken", "tassie_devil"];
 
@@ -136,6 +137,7 @@ export default function SettingsScreen() {
       ))}
 
       {/* Sign out */}
+      <Text style={styles.version}>SideEye build {BUILD}</Text>
       <Pressable onPress={() => supabase.auth.signOut()}
         style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}>
         <Text style={styles.signOutText}>Sign out</Text>
@@ -173,6 +175,7 @@ const styles = StyleSheet.create({
   achName: { color: "#e8e9f0", fontSize: 14, fontWeight: "700" },
   achDesc: { color: "#8b90a5", fontSize: 12, marginTop: 1 },
   achProgress: { color: "#565b73", fontSize: 12, fontVariant: ["tabular-nums"] },
-  signOut: { alignSelf: "center", marginTop: 30, padding: 12 },
+  version: { color: "#3a3f52", fontSize: 11, textAlign: "center", marginTop: 28 },
+  signOut: { alignSelf: "center", marginTop: 4, padding: 12 },
   signOutText: { color: "#ff6b6b", fontSize: 14, fontWeight: "600" },
 });

@@ -27,6 +27,7 @@ export default function BudgetScreen() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState("");
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,9 +81,11 @@ export default function BudgetScreen() {
     const raw = Number(r.draft.replace(/[$,\s]/g, ""));
     if (!Number.isFinite(raw) || raw <= 0) return;
     const monthly = Math.round(raw * 100 * PERIOD_FACTOR[r.period]);
-    await supabase
+    const { error } = await supabase
       .from("budgets")
       .upsert({ category_id: r.cat.id, month: monthStart(), limit_cents: monthly }, { onConflict: "category_id,month" });
+    if (error) { setSaveErr(`⚠️ ${r.cat.name} budget didn't save — try again.`); return; }
+    setSaveErr(null);
     setRows((rs) => rs.map((x) => (x.cat.id === r.cat.id ? { ...x, budget_cents: monthly, period: "mo", draft: String(monthly / 100) } : x)));
   };
 
@@ -110,6 +113,7 @@ export default function BudgetScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Budgets</Text>
       <Text style={styles.sub}>Monthly envelopes. Type an amount, tap /mo to switch to /wk or /fn — it converts on save.</Text>
+      {saveErr && <Text style={styles.saveErr}>{saveErr}</Text>}
 
       {rows.map((r) => (
         <View key={r.cat.id} style={styles.row}>
@@ -170,6 +174,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 56, paddingBottom: 64 },
   title: { color: "#fff", fontSize: 24, fontWeight: "800" },
   sub: { color: "#8b90a5", fontSize: 13, marginTop: 6, marginBottom: 18 },
+  saveErr: { color: "#ff8787", fontSize: 13, marginBottom: 10 },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#232636" },
   emoji: { fontSize: 18, width: 30 },
   mid: { flex: 1 },

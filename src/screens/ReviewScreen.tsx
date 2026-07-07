@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { supabase } from "../lib/supabase";
 import {
   categoriseAndLearn, categoriseOne, merchantSignature,
@@ -43,6 +43,7 @@ export default function ReviewScreen() {
   const [rushResult, setRushResult] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const lastAction = useRef(0);
+  const wiggle = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -121,7 +122,18 @@ export default function ReviewScreen() {
     if (rushEndsAt !== null) setRushCount((c) => c + 1 + action.clearedIds.length);
 
     const r = REACTIONS[snark][newCombo as 3 | 5 | 8 | 12];
-    if (r) { setReaction(r); setTimeout(() => setReaction(null), 3500); }
+    if (r) {
+      setReaction(r);
+      setTimeout(() => setReaction(null), 3500);
+      // mascot head-wiggle — the Bin Chicken has been waiting for this
+      wiggle.setValue(0);
+      Animated.sequence([
+        Animated.timing(wiggle, { toValue: 1, duration: 90, useNativeDriver: false }),
+        Animated.timing(wiggle, { toValue: -1, duration: 140, useNativeDriver: false }),
+        Animated.timing(wiggle, { toValue: 1, duration: 140, useNativeDriver: false }),
+        Animated.timing(wiggle, { toValue: 0, duration: 90, useNativeDriver: false }),
+      ]).start();
+    }
 
     const extra = action.clearedIds.length > 0 ? ` +${action.clearedIds.length} similar` : "";
     showToast({ message: `+${gained} pts · ${selected.emoji ?? ""} ${selected.name}${extra}`, action });
@@ -182,7 +194,12 @@ export default function ReviewScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Game header */}
         <View style={styles.hud}>
-          <Image source={MASCOT_ART[snark]} style={styles.hudArt} />
+          <Animated.Image
+            source={MASCOT_ART[snark]}
+            style={[styles.hudArt, {
+              transform: [{ rotate: wiggle.interpolate({ inputRange: [-1, 1], outputRange: ["-14deg", "14deg"] }) }],
+            }]}
+          />
           <View style={{ flex: 1 }}>
             <View style={styles.hudRow}>
               <Text style={styles.hudPoints}>⭐ {points.toLocaleString()} pts</Text>

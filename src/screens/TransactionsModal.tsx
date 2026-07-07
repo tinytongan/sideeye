@@ -79,7 +79,11 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
   };
 
   const patch = async (id: string, fields: Partial<Txn>) => {
-    await supabase.from("transactions").update(fields).eq("id", id);
+    const { error } = await supabase.from("transactions").update(fields).eq("id", id);
+    if (error) {
+      setCatMsg("⚠️ Didn't save — check your connection and try again.");
+      return;
+    }
     setOpen((o) => (o && o.id === id ? { ...o, ...fields } : o));
     setChanged(true);
   };

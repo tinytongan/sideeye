@@ -334,12 +334,13 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
             </View>
           )}
 
-          {/* Net position, month on month */}
-          <Text style={styles.section}>Net position, month on month</Text>
+          {/* Net position over time (running total) */}
+          <Text style={styles.section}>Net position over time</Text>
+          <Text style={styles.sectionHint}>your running total at the end of each month — small figures show the month's change</Text>
           <View style={styles.chart}>
-            {monthNets.map((m) => (
+            {monthNets.map((m, i) => (
               <View key={m.label} style={styles.chartCol}>
-                <Text style={styles.chartVal}>{Math.round(m.net / 100000) / 10}k</Text>
+                <Text style={styles.chartVal}>{(Math.round(m.net / 10000) / 10).toFixed(1)}k</Text>
                 <View style={styles.chartBarArea}>
                   <View style={[
                     styles.chartBar,
@@ -355,6 +356,17 @@ export default function DashboardScreen({ goSettings }: { goSettings?: () => voi
                   </View>
                 </View>
                 <Text style={styles.chartLabel}>{m.label}</Text>
+                {i > 0 ? (
+                  <Text style={[
+                    styles.chartDelta,
+                    m.net - monthNets[i - 1].net >= 0 ? styles.deltaUp : styles.deltaDown,
+                  ]}>
+                    {m.net - monthNets[i - 1].net >= 0 ? "+" : "−"}
+                    {(Math.round(Math.abs(m.net - monthNets[i - 1].net) / 10000) / 10).toFixed(1)}k
+                  </Text>
+                ) : (
+                  <Text style={styles.chartDelta}> </Text>
+                )}
               </View>
             ))}
           </View>
@@ -482,6 +494,9 @@ const styles = StyleSheet.create({
   chartBarArea: { justifyContent: "flex-end" },
   chartBar: { width: 26, borderRadius: 5, overflow: "hidden", backgroundColor: "#3d4260", flexDirection: "column" },
   chartLabel: { color: "#565b73", fontSize: 11, marginTop: 5 },
+  chartDelta: { fontSize: 9, marginTop: 1 },
+  deltaUp: { color: "#51cf66" },
+  deltaDown: { color: "#ff8787" },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 10 },
   legendItem: { flexDirection: "row", alignItems: "center" },
   legendText: { color: "#8b90a5", fontSize: 12 },

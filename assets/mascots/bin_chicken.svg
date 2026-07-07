@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Bin Chicken (ibis): white body, black head+long curved beak, head tilt -->
+  <ellipse cx="230" cy="330" rx="150" ry="120" fill="#e8e5dc"/>
+  <path d="M 330 300 Q 390 320 370 380 Q 340 360 320 340 Z" fill="#2b2b2b"/>
+  <g transform="rotate(12 300 160)">
+    <circle cx="300" cy="150" r="62" fill="#2b2b2b"/>
+    <path d="M 350 160 Q 450 180 460 260 Q 452 268 444 262 Q 420 210 340 190 Z" fill="#2b2b2b"/>
+    <circle cx="286" cy="138" r="16" fill="#f5f2e9"/>
+    <circle cx="290" cy="141" r="7" fill="#14161f"/>
+  </g>
+  <path d="M 150 250 Q 120 180 170 150 Q 180 200 210 230 Z" fill="#d8d4c8"/>
+  <line x1="200" y1="445" x2="200" y2="490" stroke="#2b2b2b" stroke-width="12" stroke-linecap="round"/>
+  <line x1="265" y1="445" x2="265" y2="490" stroke="#2b2b2b" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 55 430 L 130 430 L 122 495 L 63 495 Z" fill="#4a5568"/>
+  <rect x="48" y="418" width="90" height="16" rx="6" fill="#5a6578"/>
+  <path d="M 78 418 Q 92 400 106 418" stroke="#7c83ff" stroke-width="8" fill="none"/>
+</svg>

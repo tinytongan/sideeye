@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Quokka: round, beaming, dead-eyed happy -->
+  <ellipse cx="256" cy="300" rx="150" ry="140" fill="#a5806b"/>
+  <ellipse cx="256" cy="330" rx="105" ry="95" fill="#c9a68e"/>
+  <ellipse cx="150" cy="170" rx="42" ry="55" fill="#a5806b" transform="rotate(-15 150 170)"/>
+  <ellipse cx="362" cy="170" rx="42" ry="55" fill="#a5806b" transform="rotate(15 362 170)"/>
+  <ellipse cx="152" cy="178" rx="22" ry="32" fill="#7d5b48" transform="rotate(-15 152 178)"/>
+  <ellipse cx="360" cy="178" rx="22" ry="32" fill="#7d5b48" transform="rotate(15 360 178)"/>
+  <circle cx="205" cy="270" r="26" fill="#14161f"/>
+  <circle cx="307" cy="270" r="26" fill="#14161f"/>
+  <circle cx="214" cy="261" r="8" fill="#fff"/>
+  <circle cx="316" cy="261" r="8" fill="#fff"/>
+  <ellipse cx="256" cy="322" rx="20" ry="14" fill="#3d2c22"/>
+  <path d="M 190 355 Q 256 420 322 355" stroke="#3d2c22" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M 256 336 L 256 368" stroke="#3d2c22" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="165" cy="330" r="18" fill="#e8a5a5" opacity="0.5"/>
+  <circle cx="347" cy="330" r="18" fill="#e8a5a5" opacity="0.5"/>
+</svg>

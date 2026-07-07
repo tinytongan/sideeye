@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Judgy Wombat: square, heavy brow, unimpressed -->
+  <rect x="96" y="140" width="320" height="280" rx="90" fill="#8a7563"/>
+  <rect x="140" y="240" width="232" height="170" rx="70" fill="#b09a85"/>
+  <ellipse cx="140" cy="140" rx="38" ry="44" fill="#8a7563"/>
+  <ellipse cx="372" cy="140" rx="38" ry="44" fill="#8a7563"/>
+  <rect x="150" y="222" width="86" height="16" rx="8" fill="#4a3b2e"/>
+  <rect x="276" y="222" width="86" height="16" rx="8" fill="#4a3b2e"/>
+  <ellipse cx="196" cy="272" rx="20" ry="14" fill="#14161f"/>
+  <ellipse cx="316" cy="272" rx="20" ry="14" fill="#14161f"/>
+  <ellipse cx="256" cy="330" rx="34" ry="24" fill="#4a3b2e"/>
+  <line x1="205" y1="382" x2="307" y2="382" stroke="#4a3b2e" stroke-width="13" stroke-linecap="round"/>
+</svg>

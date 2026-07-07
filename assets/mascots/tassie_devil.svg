@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Tassie Devil: black, huge red mouth, rage -->
+  <ellipse cx="256" cy="290" rx="160" ry="150" fill="#1f1f23"/>
+  <ellipse cx="140" cy="150" rx="44" ry="50" fill="#1f1f23"/>
+  <ellipse cx="372" cy="150" rx="44" ry="50" fill="#1f1f23"/>
+  <ellipse cx="142" cy="156" rx="24" ry="30" fill="#c94f4f"/>
+  <ellipse cx="370" cy="156" rx="24" ry="30" fill="#c94f4f"/>
+  <rect x="160" y="216" width="84" height="14" rx="7" fill="#0a0a0c" transform="rotate(18 202 223)"/>
+  <rect x="268" y="216" width="84" height="14" rx="7" fill="#0a0a0c" transform="rotate(-18 310 223)"/>
+  <circle cx="204" cy="256" r="22" fill="#ff5555"/>
+  <circle cx="308" cy="256" r="22" fill="#ff5555"/>
+  <circle cx="204" cy="256" r="9" fill="#14161f"/>
+  <circle cx="308" cy="256" r="9" fill="#14161f"/>
+  <path d="M 160 330 Q 256 310 352 330 Q 340 420 256 425 Q 172 420 160 330 Z" fill="#8c1f1f"/>
+  <path d="M 185 332 L 200 362 L 215 334 Z" fill="#fff"/>
+  <path d="M 240 328 L 256 360 L 272 328 Z" fill="#fff"/>
+  <path d="M 297 334 L 312 362 L 327 332 Z" fill="#fff"/>
+  <path d="M 205 415 L 218 390 L 232 413 Z" fill="#fff"/>
+  <path d="M 280 413 L 294 390 L 307 415 Z" fill="#fff"/>
+  <ellipse cx="256" cy="300" rx="18" ry="12" fill="#0a0a0c"/>
+</svg>

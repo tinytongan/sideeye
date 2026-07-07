@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text } from "react-native";
 import type { AchievementState } from "../lib/achievements";
 import { MASCOTS, type SnarkLevel } from "../personality/copy";
+import { MASCOT_ART } from "../personality/art";
 
 const LINES: Record<SnarkLevel, string> = {
   quokka: "Look at you! An achiever! Technically. 😊",
@@ -30,7 +31,8 @@ export default function CelebrationOverlay({
         <Text style={styles.emoji}>{a.emoji}</Text>
         <Text style={styles.name}>{a.name}</Text>
         <Text style={styles.desc}>{a.desc}</Text>
-        <Text style={styles.mascot}>{MASCOTS[snark].emoji} “{LINES[snark]}”</Text>
+        <Image source={MASCOT_ART[snark]} style={styles.art} />
+        <Text style={styles.mascot}>“{LINES[snark]}”</Text>
         <Text style={styles.tap}>{idx < unlocks.length - 1 ? "tap for next" : "tap to dismiss"}</Text>
       </Animated.View>
     </Pressable>
@@ -50,6 +52,7 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 64, marginTop: 8 },
   name: { color: "#ffd43b", fontSize: 22, fontWeight: "800", marginTop: 10 },
   desc: { color: "#8b90a5", fontSize: 14, marginTop: 4, textAlign: "center" },
-  mascot: { color: "#e8e9f0", fontSize: 14, fontStyle: "italic", marginTop: 16, textAlign: "center" },
+  art: { width: 72, height: 72, marginTop: 14 },
+  mascot: { color: "#e8e9f0", fontSize: 14, fontStyle: "italic", marginTop: 8, textAlign: "center" },
   tap: { color: "#565b73", fontSize: 12, marginTop: 14 },
 });

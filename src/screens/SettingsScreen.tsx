@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
 import { centsToAud, type AccountKind } from "../lib/types";
 import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import { computeAchievements, type AchievementState } from "../lib/achievements";
+import { MASCOT_ART } from "../personality/art";
 
 const LEVELS: SnarkLevel[] = ["quokka", "wombat", "bin_chicken", "tassie_devil"];
 
@@ -76,7 +77,7 @@ export default function SettingsScreen() {
         return (
           <Pressable key={l} onPress={() => pickSnark(l)}
             style={({ pressed }) => [styles.mascotRow, active && styles.mascotActive, pressed && styles.pressed]}>
-            <Text style={styles.mascotEmoji}>{m.emoji}</Text>
+            <Image source={MASCOT_ART[l]} style={styles.mascotArt} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.mascotName, active && { color: "#fff" }]}>{m.name}</Text>
               <Text style={styles.mascotTag}>{m.tagline}</Text>
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   mascotRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#1c1f2e", borderRadius: 12, padding: 12, marginBottom: 8 },
   mascotActive: { borderWidth: 1, borderColor: "#7c83ff" },
-  mascotEmoji: { fontSize: 28, marginRight: 12 },
+  mascotArt: { width: 44, height: 44, marginRight: 12 },
   mascotName: { color: "#e8e9f0", fontSize: 15, fontWeight: "700" },
   mascotTag: { color: "#8b90a5", fontSize: 12, marginTop: 1 },
   tick: { color: "#7c83ff", fontSize: 18, fontWeight: "800" },

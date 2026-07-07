@@ -7,6 +7,7 @@ import TransactionsModal from "./TransactionsModal";
 import { assessOverdraftRisk, detectRecurring, type OverdraftRisk } from "../lib/recurring";
 import ReviewFlowModal from "./ReviewFlowModal";
 import { reviewDue } from "../lib/reviews";
+import { enablePush, pushEnabled, pushSupported } from "../lib/push";
 
 type Mode = "expense" | "income" | "net";
 
@@ -45,6 +46,8 @@ export default function DashboardScreen() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [alertsOn, setAlertsOn] = useState(() => pushEnabled());
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
   const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
@@ -191,6 +194,12 @@ export default function DashboardScreen() {
     load();
   };
 
+  const turnOnAlerts = async () => {
+    const res = await enablePush();
+    if (res.ok) { setAlertsOn(true); setAlertMsg("Alerts on. The Wombat is watching your balance."); }
+    else setAlertMsg(res.reason ?? "Couldn't enable alerts.");
+  };
+
   const maxCat = cats[0]?.total_cents ?? 1;
   const maxNet = Math.max(1, ...monthNets.map((m) => Math.abs(m.net)));
   const selNetIdx = monthNets.findIndex(
@@ -277,6 +286,21 @@ export default function DashboardScreen() {
             )}
             {syncMsg && <Text style={styles.bankMsg}>{syncMsg}</Text>}
           </View>
+
+          {/* Overdraft push alerts */}
+          {pushSupported() && !alertsOn && (
+            <Pressable onPress={turnOnAlerts}
+              style={({ pressed }) => [styles.card, styles.alertCard, pressed && styles.pressed]}>
+              <Text style={styles.alertTitle}>🔔 Enable overdraft alerts</Text>
+              <Text style={styles.bankSub}>Get pushed a warning when recurring bills threaten to overdraw an account — even when the app is closed ›</Text>
+              {alertMsg && <Text style={styles.bankMsg}>{alertMsg}</Text>}
+            </Pressable>
+          )}
+          {alertsOn && alertMsg && (
+            <View style={[styles.card, styles.alertCard]}>
+              <Text style={styles.bankMsg}>{alertMsg}</Text>
+            </View>
+          )}
 
           {/* Review due */}
           {dueReview && (
@@ -428,6 +452,8 @@ const styles = StyleSheet.create({
   bankSub: { color: "#8b90a5", fontSize: 13, marginTop: 4 },
   bankMsg: { color: "#e8e9f0", fontSize: 13, marginTop: 8 },
   bankAlt: { color: "#51cf66", fontSize: 13, marginTop: 10, textDecorationLine: "underline" },
+  alertCard: { borderColor: "#ffd43b", borderWidth: 1 },
+  alertTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
   cardLabel: { color: "#8b90a5", fontSize: 13 },
   cardValue: { color: "#fff", fontSize: 26, fontWeight: "700", marginTop: 4 },
   acctRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },

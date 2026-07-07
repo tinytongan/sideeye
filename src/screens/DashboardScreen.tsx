@@ -23,7 +23,7 @@ const monthLabel = (d: Date) =>
   d.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ goSettings }: { goSettings?: () => void } = {}) {
   const [month, setMonth] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
@@ -46,6 +46,8 @@ export default function DashboardScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [alertsOn, setAlertsOn] = useState(() => pushEnabled());
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
+  const [pace, setPace] = useState<{ name: string; pctBudget: number } | null>(null);
+  const [staleAccts, setStaleAccts] = useState<string[]>([]);
 
   const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
@@ -54,12 +56,12 @@ export default function DashboardScreen() {
     const from = iso(month);
     const to = iso(nextMonth);
 
-    const [txnRes, acctRes, reviewRes, settingsRes, catRes, allTxnRes, sessRes] = await Promise.all([
+    const [txnRes, acctRes, reviewRes, settingsRes, catRes, allTxnRes, sessRes, budRes] = await Promise.all([
       supabase
         .from("transactions")
         .select("amount_cents, category_id")
         .gte("posted_at", from).lt("posted_at", to),
-      supabase.from("accounts").select("id, name, kind, balance_cents, include_in_net_worth, source"),
+      supabase.from("accounts").select("id, name, kind, balance_cents, balance_as_of, include_in_net_worth, source"),
       supabase
         .from("transactions")
         .select("id", { count: "exact", head: true })
@@ -72,6 +74,7 @@ export default function DashboardScreen() {
         .order("posted_at", { ascending: false })
         .limit(3000),
       supabase.from("review_sessions").select("kind, period_start").not("completed_at", "is", null),
+      supabase.from("budgets").select("category_id, month, limit_cents").order("month", { ascending: false }),
     ]);
 
     const catById = new Map((catRes.data ?? []).map((c) => [c.id, c]));
@@ -98,6 +101,24 @@ export default function DashboardScreen() {
         total_cents,
       }))
       .sort((a, b) => b.total_cents - a.total_cents);
+
+    // ── Budget pace: worst category vs its budget for the viewed month ──
+    const latestBudget = new Map<string, number>();
+    for (const b of budRes.data ?? []) {
+      if (b.month <= from && !latestBudget.has(b.category_id)) latestBudget.set(b.category_id, b.limit_cents);
+      if (b.month === from) latestBudget.set(b.category_id, b.limit_cents);
+    }
+    let worstPace: { name: string; pctBudget: number } | null = null;
+    for (const [catId, spent] of byCat) {
+      if (catId === "uncat") continue;
+      const limit = latestBudget.get(catId);
+      if (!limit || limit <= 0) continue;
+      const pctBudget = Math.round((spent / limit) * 100);
+      if (!worstPace || pctBudget > worstPace.pctBudget) {
+        worstPace = { name: catById.get(catId)?.name ?? "?", pctBudget };
+      }
+    }
+    setPace(worstPace);
 
     const accts = (acctRes.data ?? []) as (AcctInfo & { include_in_net_worth: boolean; source?: string })[];
     setBankConnected(accts.some((a: any) => a.source === "basiq"));
@@ -139,6 +160,13 @@ export default function DashboardScreen() {
     else if (reviewDue("weekly", done.filter((d) => d.kind === "weekly"))) setDueReview("weekly");
     else setDueReview(null);
 
+    const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString();
+    setStaleAccts(
+      accts
+        .filter((a: any) => ["super", "investment"].includes(a.kind) && a.balance_as_of && a.balance_as_of < ninetyAgo)
+        .map((a) => a.name)
+    );
+
     setRisks(riskList);
     setTotals({ income, spend });
     setCats(rows);
@@ -154,14 +182,20 @@ export default function DashboardScreen() {
   const net = totals.income - totals.spend;
 
   const commentary = useMemo(() => {
-    const worst = cats[0];
-    if (!worst) return say("greeting_morning", snark);
-    return say("budget_pace_bad", snark, {
-      category: worst.name,
-      pct_month: Math.round((new Date().getDate() / 30) * 100),
-      pct_budget: 100,
-    });
-  }, [cats, snark]);
+    const now = new Date();
+    const isCurrentMonth = month.getMonth() === now.getMonth() && month.getFullYear() === now.getFullYear();
+    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const pctMonth = isCurrentMonth ? Math.round((now.getDate() / daysInMonth) * 100) : 100;
+    if (pace && pace.pctBudget >= 100) {
+      return say("budget_blown", snark, { category: pace.name });
+    }
+    if (pace && pace.pctBudget > pctMonth) {
+      return say("budget_pace_bad", snark, {
+        category: pace.name, pct_month: pctMonth, pct_budget: pace.pctBudget,
+      });
+    }
+    return say("greeting_morning", snark);
+  }, [pace, snark, month]);
 
   const connectBank = async () => {
     setSyncing(true);
@@ -314,6 +348,17 @@ export default function DashboardScreen() {
             <View style={[styles.card, styles.alertCard]}>
               <Text style={styles.bankMsg}>{alertMsg}</Text>
             </View>
+          )}
+
+          {/* Stale super/investment balances */}
+          {staleAccts.length > 0 && (
+            <Pressable onPress={goSettings}
+              style={({ pressed }) => [styles.card, styles.staleCard, pressed && styles.pressed]}>
+              <Text style={styles.staleTitle}>🦺 Quarterly check-in</Text>
+              <Text style={styles.bankSub}>
+                {staleAccts.join(", ")} — balance{staleAccts.length > 1 ? "s" : ""} over 3 months old. Two minutes in More → update ›
+              </Text>
+            </Pressable>
           )}
 
           {/* Review due */}
@@ -477,6 +522,8 @@ const styles = StyleSheet.create({
   bankAlt: { color: "#51cf66", fontSize: 13, marginTop: 10, textDecorationLine: "underline" },
   alertCard: { borderColor: "#ffd43b", borderWidth: 1 },
   alertTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
+  staleCard: { borderColor: "#ffd43b", borderWidth: 1 },
+  staleTitle: { color: "#ffd43b", fontSize: 15, fontWeight: "800" },
   cardLabel: { color: "#8b90a5", fontSize: 13 },
   cardValue: { color: "#fff", fontSize: 26, fontWeight: "700", marginTop: 4 },
   acctRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },

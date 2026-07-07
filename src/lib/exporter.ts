@@ -130,3 +130,59 @@ export function download(filename: string, content: string, mime: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+/** EOFY deduction pack: tax-flagged transactions for a financial year,
+ * grouped by category with notes and receipt counts. Accountant-ready. */
+export async function buildEofyPack(fyEndYear: number): Promise<{ md: string; count: number }> {
+  const from = `${fyEndYear - 1}-07-01`;
+  const to = `${fyEndYear}-07-01`;
+  const [txnRes, catRes, recRes] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("id, posted_at, description, amount_cents, category_id, tax_note, notes")
+      .eq("tax_flag", true)
+      .gte("posted_at", from).lt("posted_at", to)
+      .order("posted_at", { ascending: true }),
+    supabase.from("categories").select("id, name, emoji"),
+    supabase.from("receipts").select("transaction_id"),
+  ]);
+  const cat = new Map((catRes.data ?? []).map((c) => [c.id, c]));
+  const receiptCount = new Map<string, number>();
+  for (const r of recRes.data ?? []) {
+    receiptCount.set(r.transaction_id, (receiptCount.get(r.transaction_id) ?? 0) + 1);
+  }
+  const txns = txnRes.data ?? [];
+
+  const byCat = new Map<string, typeof txns>();
+  for (const t of txns) {
+    const key = t.category_id ?? "uncat";
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key)!.push(t);
+  }
+
+  let body = "";
+  let grand = 0;
+  for (const [catId, group] of byCat) {
+    const c = catId === "uncat" ? { name: "Uncategorised", emoji: "❓" } : cat.get(catId) ?? { name: "?", emoji: "" };
+    const total = group.reduce((s, t) => s + Math.abs(t.amount_cents), 0);
+    grand += total;
+    body += `\n### ${c.emoji ?? ""} ${c.name} — ${centsToAud(total)}\n\n`;
+    body += `| Date | Description | Amount | Note | Receipts |\n|---|---|---|---|---|\n`;
+    for (const t of group) {
+      const rc = receiptCount.get(t.id) ?? 0;
+      body += `| ${t.posted_at} | ${t.description} | ${centsToAud(Math.abs(t.amount_cents))} | ${t.tax_note ?? t.notes ?? ""} | ${rc > 0 ? `${rc} 🧾` : "—"} |\n`;
+    }
+  }
+
+  const missing = txns.filter((t) => !(receiptCount.get(t.id) ?? 0)).length;
+  const md = `# SideEye — EOFY deduction pack FY${fyEndYear - 1}-${String(fyEndYear).slice(2)}
+
+> Tax-flagged transactions ${from} → ${to.slice(0, 10)}. Amounts are the transaction totals —
+> apportion work-use percentages with your accountant. Receipts are stored in SideEye;
+> export individual files from each transaction's detail view.
+
+**Summary:** ${txns.length} flagged transactions totalling ${centsToAud(grand)}.
+${missing > 0 ? `⚠️ ${missing} flagged transaction(s) have no receipt attached.` : "✅ Every flagged transaction has at least one receipt."}
+${body}`;
+  return { md, count: txns.length };
+}

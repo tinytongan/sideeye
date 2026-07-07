@@ -3,16 +3,17 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { supabase } from "../lib/supabase";
 import { centsToAud, type AccountKind } from "../lib/types";
 import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
+import { computeAchievements, type AchievementState } from "../lib/achievements";
 
 const LEVELS: SnarkLevel[] = ["quokka", "wombat", "bin_chicken", "tassie_devil"];
 
 interface ManualAcct { id: string; name: string; kind: string; balance_cents: number | null }
-interface Achievement { id: string; emoji: string; name: string; desc: string; unlocked: boolean; progress?: string }
+
 
 export default function SettingsScreen() {
   const [snark, setSnark] = useState<SnarkLevel>("wombat");
   const [accts, setAccts] = useState<ManualAcct[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [achievements, setAchievements] = useState<AchievementState[]>([]);
   const [streaks, setStreaks] = useState<{ id: string; current: number; best: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -22,27 +23,16 @@ export default function SettingsScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [snarkRes, acctRes, streakRes, receiptCount, reviewCount, taxCount] = await Promise.all([
+    const [snarkRes, acctRes, streakRes, achStates] = await Promise.all([
       supabase.from("settings").select("value").eq("key", "snark_level").maybeSingle(),
       supabase.from("accounts").select("id, name, kind, balance_cents").in("kind", ["super", "investment", "cash"]),
       supabase.from("streaks").select("*"),
-      supabase.from("receipts").select("id", { count: "exact", head: true }),
-      supabase.from("review_sessions").select("id", { count: "exact", head: true }).not("completed_at", "is", null),
-      supabase.from("transactions").select("id", { count: "exact", head: true }).eq("tax_flag", true),
+      computeAchievements(),
     ]);
     if (snarkRes.data?.value) setSnark(snarkRes.data.value as SnarkLevel);
     setAccts((acctRes.data ?? []) as ManualAcct[]);
     setStreaks((streakRes.data ?? []) as { id: string; current: number; best: number }[]);
-
-    const nR = receiptCount.count ?? 0, nRev = reviewCount.count ?? 0, nTax = taxCount.count ?? 0;
-    const best = (id: string) => (streakRes.data ?? []).find((s) => s.id === id)?.best ?? 0;
-    setAchievements([
-      { id: "first_review", emoji: "🎓", name: "Self-Aware", desc: "Complete your first review", unlocked: nRev >= 1, progress: `${nRev}/1` },
-      { id: "review_streak_4", emoji: "🔥", name: "The Streak", desc: "4 reviews in a row", unlocked: best("weekly_review") >= 4, progress: `${best("weekly_review")}/4` },
-      { id: "receipt_goblin", emoji: "🧾", name: "Receipt Goblin", desc: "File 50 receipts", unlocked: nR >= 50, progress: `${nR}/50` },
-      { id: "tax_hawk", emoji: "🦅", name: "Tax Hawk", desc: "Flag 20 transactions for tax", unlocked: nTax >= 20, progress: `${nTax}/20` },
-      { id: "receipt_first", emoji: "📎", name: "Paper Trail", desc: "Attach your first receipt", unlocked: nR >= 1, progress: `${nR}/1` },
-    ]);
+    setAchievements(achStates);
     setLoading(false);
   }, []);
 
@@ -140,7 +130,7 @@ export default function SettingsScreen() {
             <Text style={[styles.achName, a.unlocked && { color: "#ffd43b" }]}>{a.name}</Text>
             <Text style={styles.achDesc}>{a.desc}</Text>
           </View>
-          <Text style={styles.achProgress}>{a.progress}</Text>
+          <Text style={styles.achProgress}>{Math.min(a.progress, a.target)}/{a.target}</Text>
         </View>
       ))}
 

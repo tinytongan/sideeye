@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { buildCsv, buildMarkdown, download, fetchExportData } from "../lib/exporter";
+import { buildCsv, buildEofyPack, buildMarkdown, download, fetchExportData } from "../lib/exporter";
 
 type Period = "month" | "3months" | "fy" | "all";
 const PERIODS: { key: Period; label: string; hint: string }[] = [
@@ -88,6 +88,22 @@ export default function ExportScreen() {
         <Text style={styles.btnText}>📋 Copy Markdown for AI</Text>
       </Pressable>
 
+      <Text style={styles.section}>Tax time</Text>
+      <Pressable disabled={busy} onPress={async () => {
+        setBusy(true); setStatus(null);
+        try {
+          const now = new Date();
+          const fyEnd = now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear();
+          const { md, count } = await buildEofyPack(fyEnd);
+          download(`sideeye-eofy-FY${fyEnd}.md`, md, "text/markdown");
+          setStatus(`EOFY pack downloaded — ${count} tax-flagged transaction(s).`);
+        } catch { setStatus("EOFY export failed. Poke Claude."); }
+        setBusy(false);
+      }} style={({ pressed }) => [styles.btn, styles.btnTax, pressed && styles.pressed]}>
+        <Text style={styles.btnText}>🧾 EOFY deduction pack</Text>
+      </Pressable>
+      <Text style={styles.taxHint}>Current financial year's tax-flagged transactions, grouped by category with notes and receipt status — ready for your accountant or myTax.</Text>
+
       {busy && <ActivityIndicator style={{ marginTop: 20 }} />}
       {status && <Text style={styles.status}>{status}</Text>}
     </ScrollView>
@@ -115,4 +131,6 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   status: { color: "#51cf66", textAlign: "center", marginTop: 18, fontSize: 13 },
+  btnTax: { backgroundColor: "#946b00" },
+  taxHint: { color: "#565b73", fontSize: 11, marginTop: 8 },
 });

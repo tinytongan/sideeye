@@ -9,6 +9,7 @@ const PERIOD_LABEL: Record<Period, string> = { wk: "/wk", fn: "/fn", mo: "/mo" }
 
 interface Row {
   cat: Category;
+  spent_month_cents: number; // this calendar month
   avg_month_cents: number; // 6-month average actual spend
   budget_cents: number | null; // current monthly budget
   draft: string;
@@ -31,19 +32,24 @@ export default function BudgetScreen() {
     setLoading(true);
     const since = new Date();
     since.setMonth(since.getMonth() - 6);
+    const mStart = monthStart();
     const [catRes, txnRes, budRes] = await Promise.all([
       supabase.from("categories").select("*").eq("is_income", false).order("sort"),
       supabase
         .from("transactions")
-        .select("category_id, amount_cents")
+        .select("category_id, amount_cents, posted_at")
         .lt("amount_cents", 0)
         .gte("posted_at", since.toISOString().slice(0, 10)),
       supabase.from("budgets").select("category_id, limit_cents, month").order("month", { ascending: false }),
     ]);
     const spend = new Map<string, number>();
+    const monthSpend = new Map<string, number>();
     for (const t of txnRes.data ?? []) {
       if (!t.category_id) continue;
       spend.set(t.category_id, (spend.get(t.category_id) ?? 0) + -t.amount_cents);
+      if ((t as { posted_at?: string }).posted_at && (t as { posted_at: string }).posted_at >= mStart) {
+        monthSpend.set(t.category_id, (monthSpend.get(t.category_id) ?? 0) + -t.amount_cents);
+      }
     }
     // latest budget per category (any month ≤ now acts as the template)
     const latestBudget = new Map<string, number>();
@@ -56,6 +62,7 @@ export default function BudgetScreen() {
         const budget = latestBudget.get(c.id) ?? null;
         return {
           cat: c as Category,
+          spent_month_cents: monthSpend.get(c.id) ?? 0,
           avg_month_cents: Math.round((spend.get(c.id) ?? 0) / 6),
           budget_cents: budget,
           draft: budget !== null ? String(budget / 100) : "",
@@ -92,7 +99,7 @@ export default function BudgetScreen() {
       .insert({ name, emoji: newEmoji.trim() || "🏷️", sort: 80 })
       .select("*").single();
     if (data) {
-      setRows((rs) => [...rs, { cat: data as Category, avg_month_cents: 0, budget_cents: null, draft: "", period: "mo" }]);
+      setRows((rs) => [...rs, { cat: data as Category, spent_month_cents: 0, avg_month_cents: 0, budget_cents: null, draft: "", period: "mo" }]);
       setNewName(""); setNewEmoji("");
     }
   };
@@ -112,6 +119,18 @@ export default function BudgetScreen() {
             <Text style={styles.avg}>
               {r.avg_month_cents > 0 ? `averaging ${centsToAud(r.avg_month_cents)}/mo` : "no recent spending"}
             </Text>
+            {r.budget_cents !== null && r.budget_cents > 0 && (
+              <View style={styles.paceWrap}>
+                <View style={[
+                  styles.paceBar,
+                  { width: `${Math.min(100, (r.spent_month_cents / r.budget_cents) * 100)}%` },
+                  r.spent_month_cents > r.budget_cents && styles.paceOver,
+                ]} />
+                <Text style={[styles.paceText, r.spent_month_cents > r.budget_cents && styles.paceTextOver]}>
+                  {centsToAud(r.spent_month_cents)} of {centsToAud(r.budget_cents)}
+                </Text>
+              </View>
+            )}
           </View>
           <TextInput
             style={styles.input}
@@ -156,6 +175,11 @@ const styles = StyleSheet.create({
   mid: { flex: 1 },
   name: { color: "#e8e9f0", fontSize: 14, fontWeight: "600" },
   avg: { color: "#565b73", fontSize: 12, marginTop: 1 },
+  paceWrap: { marginTop: 4 },
+  paceBar: { height: 4, borderRadius: 2, backgroundColor: "#51cf66" },
+  paceOver: { backgroundColor: "#ff6b6b" },
+  paceText: { color: "#565b73", fontSize: 10, marginTop: 2 },
+  paceTextOver: { color: "#ff8787" },
   input: { backgroundColor: "#1c1f2e", borderRadius: 8, color: "#fff", paddingVertical: 6, paddingHorizontal: 10, minWidth: 76, textAlign: "right", fontSize: 14 },
   period: { color: "#7c83ff", fontSize: 13, fontWeight: "700", marginLeft: 8, width: 34 },
   section: { color: "#fff", fontSize: 16, fontWeight: "700", marginTop: 28, marginBottom: 10 },

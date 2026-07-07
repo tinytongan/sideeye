@@ -9,6 +9,9 @@ import BudgetScreen from "./src/screens/BudgetScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import ExportScreen from "./src/screens/ExportScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import CelebrationOverlay from "./src/components/CelebrationOverlay";
+import { syncNewUnlocks, type AchievementState } from "./src/lib/achievements";
+import type { SnarkLevel } from "./src/personality/copy";
 
 type Tab = "dashboard" | "review" | "budgets" | "export" | "settings";
 const TABS: { key: Tab; label: string; icon: string }[] = [
@@ -23,6 +26,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
+  const [unlocks, setUnlocks] = useState<AchievementState[]>([]);
+  const [snark, setSnark] = useState<SnarkLevel>("wombat");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -32,6 +37,13 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    supabase.from("settings").select("value").eq("key", "snark_level").maybeSingle()
+      .then(({ data }) => { if (data?.value) setSnark(data.value as SnarkLevel); });
+    syncNewUnlocks().then((fresh) => { if (fresh.length > 0) setUnlocks(fresh); });
+  }, [session]);
 
   if (checking) {
     return (
@@ -54,7 +66,7 @@ export default function App() {
   return (
     <View style={styles.root}>
       <View style={styles.body}>
-        {tab === "dashboard" && <DashboardScreen />}
+        {tab === "dashboard" && <DashboardScreen goSettings={() => setTab("settings")} />}
         {tab === "review" && <ReviewScreen />}
         {tab === "budgets" && <BudgetScreen />}
         {tab === "export" && <ExportScreen />}
@@ -68,6 +80,9 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      {unlocks.length > 0 && (
+        <CelebrationOverlay unlocks={unlocks} snark={snark} onDone={() => setUnlocks([])} />
+      )}
       <StatusBar style="light" />
     </View>
   );

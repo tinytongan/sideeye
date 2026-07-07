@@ -1,0 +1,86 @@
+import { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "./src/lib/supabase";
+import DashboardScreen from "./src/screens/DashboardScreen";
+import ReviewScreen from "./src/screens/ReviewScreen";
+import BudgetScreen from "./src/screens/BudgetScreen";
+import LoginScreen from "./src/screens/LoginScreen";
+
+type Tab = "dashboard" | "review" | "budgets";
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: "dashboard", label: "Dashboard", icon: "📊" },
+  { key: "review", label: "Review", icon: "👀" },
+  { key: "budgets", label: "Budgets", icon: "🧮" },
+];
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [session, setSession] = useState<Session | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setChecking(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  if (checking) {
+    return (
+      <View style={[styles.root, styles.center]}>
+        <ActivityIndicator />
+        <StatusBar style="light" />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return (
+      <>
+        <LoginScreen />
+        <StatusBar style="light" />
+      </>
+    );
+  }
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.body}>
+        {tab === "dashboard" && <DashboardScreen />}
+        {tab === "review" && <ReviewScreen />}
+        {tab === "budgets" && <BudgetScreen />}
+      </View>
+      <View style={styles.tabbar}>
+        {TABS.map((t) => (
+          <Pressable key={t.key} style={styles.tab} onPress={() => setTab(t.key)}>
+            <Text style={styles.tabIcon}>{t.icon}</Text>
+            <Text style={[styles.tabLabel, tab === t.key && styles.tabActive]}>{t.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <StatusBar style="light" />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#14161f" },
+  center: { alignItems: "center", justifyContent: "center" },
+  body: { flex: 1 },
+  tabbar: {
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#232636",
+    backgroundColor: "#171923",
+    paddingBottom: 18,
+    paddingTop: 8,
+  },
+  tab: { flex: 1, alignItems: "center" },
+  tabIcon: { fontSize: 20 },
+  tabLabel: { color: "#565b73", fontSize: 11, marginTop: 2 },
+  tabActive: { color: "#7c83ff", fontWeight: "700" },
+});

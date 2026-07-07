@@ -7,12 +7,14 @@ import DashboardScreen from "./src/screens/DashboardScreen";
 import ReviewScreen from "./src/screens/ReviewScreen";
 import BudgetScreen from "./src/screens/BudgetScreen";
 import LoginScreen from "./src/screens/LoginScreen";
+import ExportScreen from "./src/screens/ExportScreen";
 
-type Tab = "dashboard" | "review" | "budgets";
+type Tab = "dashboard" | "review" | "budgets" | "export";
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: "📊" },
   { key: "review", label: "Review", icon: "👀" },
   { key: "budgets", label: "Budgets", icon: "🧮" },
+  { key: "export", label: "Export", icon: "📤" },
 ];
 
 export default function App() {
@@ -53,6 +55,7 @@ export default function App() {
         {tab === "dashboard" && <DashboardScreen />}
         {tab === "review" && <ReviewScreen />}
         {tab === "budgets" && <BudgetScreen />}
+        {tab === "export" && <ExportScreen />}
       </View>
       <View style={styles.tabbar}>
         {TABS.map((t) => (

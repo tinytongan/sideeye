@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { centsToAud } from "../lib/types";
 import { MASCOTS, say, type SnarkLevel } from "../personality/copy";
 import TransactionsModal from "./TransactionsModal";
+import { assessOverdraftRisk, detectRecurring, type OverdraftRisk } from "../lib/recurring";
 
 type Mode = "expense" | "income" | "net";
 
@@ -36,6 +37,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<CatRow | null>(null);
   const [openAll, setOpenAll] = useState(false);
+  const [risks, setRisks] = useState<OverdraftRisk[]>([]);
 
   const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
@@ -58,7 +60,7 @@ export default function DashboardScreen() {
       supabase.from("categories").select("id, name, emoji, is_income"),
       supabase
         .from("transactions")
-        .select("account_id, amount_cents, posted_at")
+        .select("account_id, amount_cents, posted_at, description")
         .order("posted_at", { ascending: false })
         .limit(3000),
     ]);
@@ -112,6 +114,17 @@ export default function DashboardScreen() {
       nets.push({ label, perAccount, net: perAccount.reduce((s, p) => s + p.cents, 0) });
     }
 
+    // ── Overdraft risk: recurring debits due in 7 days vs balances ──
+    const riskList: OverdraftRisk[] = [];
+    for (const a of accts) {
+      if (a.kind !== "transaction" || a.balance_cents === null) continue;
+      const mine = (allTxnRes.data ?? []).filter((t) => t.account_id === a.id);
+      const rec = detectRecurring(mine as { posted_at: string; description: string; amount_cents: number }[]);
+      const risk = assessOverdraftRisk(a.name, a.balance_cents, rec);
+      if (risk) riskList.push(risk);
+    }
+
+    setRisks(riskList);
     setTotals({ income, spend });
     setCats(rows);
     setNetWorth(nw);
@@ -181,6 +194,26 @@ export default function DashboardScreen() {
           <Text style={styles.commentary}>
             {MASCOTS[snark].emoji} “{commentary}”
           </Text>
+
+          {/* Overdraft warnings */}
+          {risks.map((r) => (
+            <View key={r.account_name} style={[styles.card, styles.riskCard]}>
+              <Text style={styles.riskTitle}>
+                ⚠️ {say("overdraft_warning", snark, {
+                  balance: centsToAud(r.balance_cents),
+                  upcoming: centsToAud(r.upcoming_cents),
+                })}
+              </Text>
+              {r.items.map((i) => (
+                <Text key={i.signature} style={styles.riskItem}>
+                  {i.signature} · ~{centsToAud(i.avg_cents)} expected {new Date(i.next_date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}
+                </Text>
+              ))}
+              <Text style={styles.riskShortfall}>
+                Shortfall if nothing moves: {centsToAud(r.shortfall_cents)}
+              </Text>
+            </View>
+          ))}
 
           {/* Month-end position for the selected month */}
           {selNetIdx >= 0 && (
@@ -303,6 +336,10 @@ const styles = StyleSheet.create({
   commentary: { color: "#8b90a5", fontSize: 14, textAlign: "center", marginTop: 8, fontStyle: "italic" },
   card: { backgroundColor: "#1c1f2e", borderRadius: 14, padding: 16, marginTop: 20 },
   reviewCard: { borderColor: "#7c83ff", borderWidth: 1 },
+  riskCard: { borderColor: "#ff6b6b", borderWidth: 1 },
+  riskTitle: { color: "#ff8787", fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  riskItem: { color: "#8b90a5", fontSize: 12, marginTop: 6 },
+  riskShortfall: { color: "#ff6b6b", fontSize: 13, fontWeight: "800", marginTop: 8 },
   cardLabel: { color: "#8b90a5", fontSize: 13 },
   cardValue: { color: "#fff", fontSize: 26, fontWeight: "700", marginTop: 4 },
   acctRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },

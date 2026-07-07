@@ -73,3 +73,30 @@ export async function undoCategorisation(a: CategoriseAction): Promise<void> {
     await supabase.from("category_rules").delete().eq("id", a.ruleId);
   }
 }
+
+/** Re-categorise this transaction AND every other transaction from the same
+ * merchant — including already-categorised ones (fixing recurring mistakes).
+ * Learns a rule so future arrivals land right too. */
+export async function categoriseEverywhere(
+  txnId: string,
+  description: string,
+  categoryId: string
+): Promise<CategoriseAction & { retagged: number }> {
+  const base = await categoriseAndLearn(txnId, description, categoryId);
+  const sig = merchantSignature(description);
+  if (!sig) return { ...base, retagged: 0 };
+  const { data: matches } = await supabase
+    .from("transactions")
+    .select("id, description, category_id")
+    .ilike("description", `%${sig.split(" ")[0]}%`);
+  const ids = (matches ?? [])
+    .filter((m) => m.id !== txnId && merchantSignature(m.description) === sig && m.category_id !== categoryId)
+    .map((m) => m.id);
+  if (ids.length > 0) {
+    await supabase
+      .from("transactions")
+      .update({ category_id: categoryId, category_confidence: 0.95, needs_review: false })
+      .in("id", ids);
+  }
+  return { ...base, clearedIds: [...base.clearedIds, ...ids], retagged: ids.length };
+}

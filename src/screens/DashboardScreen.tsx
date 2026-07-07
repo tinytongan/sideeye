@@ -9,8 +9,6 @@ import ReviewFlowModal from "./ReviewFlowModal";
 import { reviewDue } from "../lib/reviews";
 import { enablePush, pushEnabled, pushSupported } from "../lib/push";
 
-type Mode = "expense" | "income" | "net";
-
 interface CatRow { id: string | "uncat"; name: string; emoji: string | null; total_cents: number }
 interface MonthTotals { income: number; spend: number }
 interface AcctInfo { id: string; name: string; kind: string; balance_cents: number | null }
@@ -30,7 +28,7 @@ export default function DashboardScreen() {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
-  const [mode, setMode] = useState<Mode>("expense");
+  const [seg, setSeg] = useState<"income" | "spend" | null>(null);
   const [cats, setCats] = useState<CatRow[]>([]);
   const [totals, setTotals] = useState<MonthTotals>({ income: 0, spend: 0 });
   const [netWorth, setNetWorth] = useState<number | null>(null);
@@ -153,11 +151,7 @@ export default function DashboardScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const headline = useMemo(() => {
-    if (mode === "income") return centsToAud(totals.income);
-    if (mode === "expense") return centsToAud(totals.spend);
-    return centsToAud(totals.income - totals.spend);
-  }, [mode, totals]);
+  const net = totals.income - totals.spend;
 
   const commentary = useMemo(() => {
     const worst = cats[0];
@@ -220,25 +214,45 @@ export default function DashboardScreen() {
         </Pressable>
       </View>
 
-      {/* Mode toggle */}
-      <View style={styles.toggle}>
-        {(["expense", "income", "net"] as Mode[]).map((m) => (
-          <Pressable key={m} onPress={() => setMode(m)}
-            style={({ pressed }) => [styles.toggleBtn, mode === m && styles.toggleActive, pressed && styles.pressed]}>
-            <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
-              {m === "expense" ? "Spent" : m === "income" ? "In" : "Net"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} />
       ) : (
         <>
-          <Text style={[styles.headline, mode === "net" && totals.income - totals.spend < 0 && styles.negative]}>
-            {headline}
+          {/* Net headline + segmented month bar */}
+          <Text style={[styles.headline, net < 0 && styles.negative]}>
+            {centsToAud(net)}
           </Text>
+          <Text style={styles.netLabel}>net this month</Text>
+          <View style={styles.segBar}>
+            <Pressable
+              onPress={() => setSeg(seg === "income" ? null : "income")}
+              style={({ pressed }) => [
+                styles.segIncome,
+                { flex: Math.max(totals.income, 1) },
+                seg === "income" && styles.segActive,
+                pressed && styles.pressed,
+              ]}
+            />
+            <Pressable
+              onPress={() => setSeg(seg === "spend" ? null : "spend")}
+              style={({ pressed }) => [
+                styles.segSpend,
+                { flex: Math.max(totals.spend, 1) },
+                seg === "spend" && styles.segActive,
+                pressed && styles.pressed,
+              ]}
+            />
+          </View>
+          {seg ? (
+            <Text style={styles.segDetail}>
+              {seg === "income" ? "🟢 In: " : "🔴 Spent: "}
+              <Text style={styles.segDetailVal}>
+                {centsToAud(seg === "income" ? totals.income : totals.spend)}
+              </Text>
+            </Text>
+          ) : (
+            <Text style={styles.segHint}>tap a segment for the split</Text>
+          )}
           <Text style={styles.commentary}>
             {MASCOTS[snark].emoji} “{commentary}”
           </Text>
@@ -378,6 +392,7 @@ export default function DashboardScreen() {
 
           {/* Category breakdown */}
           <Text style={styles.section}>Where it went</Text>
+          <Text style={styles.sectionHint}>tap a category, then a transaction — edit, tax-flag, attach receipts</Text>
           {cats.map((c) => (
             <Pressable key={c.name} onPress={() => setOpenCat(c)}
               style={({ pressed }) => [styles.catRow, pressed && styles.rowPressed]}>
@@ -435,7 +450,15 @@ const styles = StyleSheet.create({
   toggleText: { color: "#8b90a5", fontWeight: "600" },
   toggleTextActive: { color: "#fff" },
   pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
-  headline: { color: "#fff", fontSize: 44, fontWeight: "800", textAlign: "center", marginTop: 24 },
+  headline: { color: "#51cf66", fontSize: 44, fontWeight: "800", textAlign: "center", marginTop: 20 },
+  netLabel: { color: "#565b73", fontSize: 12, textAlign: "center", marginTop: 2 },
+  segBar: { flexDirection: "row", height: 26, borderRadius: 13, overflow: "hidden", marginTop: 14, gap: 2 },
+  segIncome: { backgroundColor: "#51cf66" },
+  segSpend: { backgroundColor: "#ff6b6b" },
+  segActive: { borderWidth: 2, borderColor: "#fff" },
+  segDetail: { color: "#8b90a5", fontSize: 14, textAlign: "center", marginTop: 8 },
+  segDetailVal: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  segHint: { color: "#565b73", fontSize: 12, textAlign: "center", marginTop: 8 },
   negative: { color: "#ff6b6b" },
   commentary: { color: "#8b90a5", fontSize: 14, textAlign: "center", marginTop: 8, fontStyle: "italic" },
   card: { backgroundColor: "#1c1f2e", borderRadius: 14, padding: 16, marginTop: 20 },
@@ -461,6 +484,7 @@ const styles = StyleSheet.create({
   acctName: { color: "#e8e9f0", fontSize: 13, flex: 1 },
   acctVal: { color: "#8b90a5", fontSize: 13, fontVariant: ["tabular-nums"] },
   section: { color: "#fff", fontSize: 16, fontWeight: "700", marginTop: 28, marginBottom: 8 },
+  sectionHint: { color: "#565b73", fontSize: 11, marginTop: -6, marginBottom: 8 },
   chart: { flexDirection: "row", alignItems: "flex-end", height: 130, gap: 6 },
   chartCol: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
   chartVal: { color: "#8b90a5", fontSize: 10, marginBottom: 3 },

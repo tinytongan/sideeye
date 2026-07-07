@@ -6,6 +6,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { centsToAud, type Category, type Receipt } from "../lib/types";
 import { deleteReceipt, listReceipts, pickAndUploadReceipt } from "../lib/receipts";
+import { categoriseEverywhere, merchantSignature } from "../lib/learn";
 
 interface Txn {
   id: string;
@@ -38,6 +39,8 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
   const [changed, setChanged] = useState(false); // reload list after edits
   const [receipts, setReceipts] = useState<(Receipt & { url: string })[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [pendingCat, setPendingCat] = useState<Category | null>(null);
+  const [catMsg, setCatMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,23 +115,77 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
                 {open.accounts?.name ? `  ·  ${open.accounts.name}` : ""}
               </Text>
 
+              <Text style={styles.dLabel}>🧾 Receipts & invoices</Text>
+              {receipts.map((r) => (
+                <View key={r.id} style={styles.receiptRow}>
+                  <Pressable style={{ flex: 1 }} onPress={() => window.open(r.url, "_blank")}>
+                    <Text style={styles.receiptLink}>
+                      {r.mime_type.includes("pdf") ? "📄" : "🖼️"} {r.storage_path.split("/").pop()}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => removeReceipt(r)}>
+                    <Text style={styles.receiptDelete}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <Pressable onPress={attach} disabled={uploading}
+                style={({ pressed }) => [styles.attachBtn, pressed && styles.pressed]}>
+                <Text style={styles.attachText}>{uploading ? "Uploading…" : "＋ Attach photo or PDF"}</Text>
+              </Pressable>
+
               <Text style={styles.dLabel}>Category</Text>
               <View style={styles.grid}>
                 {cats
                   .filter((c) => (open.amount_cents > 0 ? c.is_income : !c.is_income))
                   .map((c) => {
                     const active = open.category_id === c.id;
+                    const pending = pendingCat?.id === c.id;
                     return (
                       <Pressable
                         key={c.id}
-                        onPress={() => patch(open.id, { category_id: c.id, needs_review: false })}
-                        style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
+                        onPress={() => { setPendingCat(active || pending ? null : c); setCatMsg(null); }}
+                        style={({ pressed }) => [styles.chip, (active || pending) && styles.chipActive, pressed && styles.pressed]}
                       >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.emoji} {c.name}</Text>
+                        <Text style={[styles.chipText, (active || pending) && styles.chipTextActive]}>{c.emoji} {c.name}</Text>
                       </Pressable>
                     );
                   })}
               </View>
+
+              {pendingCat && (
+                <View style={styles.scopeBox}>
+                  <Text style={styles.scopeTitle}>
+                    Change to {pendingCat.emoji} {pendingCat.name} for…
+                  </Text>
+                  <View style={styles.scopeRow}>
+                    <Pressable
+                      onPress={async () => {
+                        await patch(open.id, { category_id: pendingCat.id, needs_review: false });
+                        setCatMsg(`Changed this transaction only.`);
+                        setPendingCat(null);
+                      }}
+                      style={({ pressed }) => [styles.scopeBtn, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.scopeBtnText}>Just this one</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        const res = await categoriseEverywhere(open.id, open.description, pendingCat.id);
+                        setOpen((o) => (o ? { ...o, category_id: pendingCat.id, needs_review: false } : o));
+                        setChanged(true);
+                        setCatMsg(`Changed everywhere — ${res.retagged + 1} transaction(s) retagged, rule learned.`);
+                        setPendingCat(null);
+                      }}
+                      style={({ pressed }) => [styles.scopeBtn, styles.scopeBtnPrimary, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.scopeBtnText}>
+                        All "{merchantSignature(open.description) ?? "matching"}"
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+              {catMsg && <Text style={styles.catMsg}>{catMsg}</Text>}
 
               <View style={styles.switchRow}>
                 <Text style={styles.dLabel}>🧾 Flag for tax</Text>
@@ -147,24 +204,6 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
                   onEndEditing={(e) => patch(open.id, { tax_note: e.nativeEvent.text || null })}
                 />
               )}
-
-              <Text style={styles.dLabel}>🧾 Receipts & invoices</Text>
-              {receipts.map((r) => (
-                <View key={r.id} style={styles.receiptRow}>
-                  <Pressable style={{ flex: 1 }} onPress={() => window.open(r.url, "_blank")}>
-                    <Text style={styles.receiptLink}>
-                      {r.mime_type.includes("pdf") ? "📄" : "🖼️"} {r.storage_path.split("/").pop()}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={() => removeReceipt(r)}>
-                    <Text style={styles.receiptDelete}>✕</Text>
-                  </Pressable>
-                </View>
-              ))}
-              <Pressable onPress={attach} disabled={uploading}
-                style={({ pressed }) => [styles.attachBtn, pressed && styles.pressed]}>
-                <Text style={styles.attachText}>{uploading ? "Uploading…" : "＋ Attach photo or PDF"}</Text>
-              </Pressable>
 
               <Text style={styles.dLabel}>Notes</Text>
               <TextInput
@@ -197,6 +236,7 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
                   <Text style={[styles.rowAmt, t.amount_cents > 0 && styles.income]}>
                     {centsToAud(t.amount_cents)}
                   </Text>
+                  <Text style={styles.rowChevron}>›</Text>
                 </Pressable>
               ))}
               {txns.length === 0 && <Text style={styles.empty}>Nothing here this month.</Text>}
@@ -252,4 +292,12 @@ const styles = StyleSheet.create({
   receiptDelete: { color: "#565b73", fontSize: 15, paddingHorizontal: 6 },
   attachBtn: { backgroundColor: "#232636", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 8 },
   attachText: { color: "#e8e9f0", fontSize: 13, fontWeight: "600" },
+  rowChevron: { color: "#565b73", fontSize: 18, marginLeft: 8 },
+  scopeBox: { backgroundColor: "#232636", borderRadius: 12, padding: 12, marginTop: 12 },
+  scopeTitle: { color: "#fff", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  scopeRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  scopeBtn: { flex: 1, backgroundColor: "#1c1f2e", borderRadius: 9, paddingVertical: 11, alignItems: "center" },
+  scopeBtnPrimary: { backgroundColor: "#7c83ff" },
+  scopeBtnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  catMsg: { color: "#51cf66", fontSize: 12, marginTop: 8, textAlign: "center" },
 });

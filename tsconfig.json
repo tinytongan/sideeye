@@ -5,5 +5,10 @@
     "types": [
       "node"
     ]
-  }
+  },
+  "exclude": [
+    "supabase/functions",
+    "node_modules",
+    "dist"
+  ]
 }

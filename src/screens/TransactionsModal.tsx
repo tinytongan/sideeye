@@ -4,7 +4,8 @@ import {
   Switch, Text, TextInput, View,
 } from "react-native";
 import { supabase } from "../lib/supabase";
-import { centsToAud, type Category } from "../lib/types";
+import { centsToAud, type Category, type Receipt } from "../lib/types";
+import { deleteReceipt, listReceipts, pickAndUploadReceipt } from "../lib/receipts";
 
 interface Txn {
   id: string;
@@ -35,6 +36,8 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
   const [open, setOpen] = useState<Txn | null>(null);
   const [loading, setLoading] = useState(true);
   const [changed, setChanged] = useState(false); // reload list after edits
+  const [receipts, setReceipts] = useState<(Receipt & { url: string })[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +58,22 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
   }, [categoryId, from, to]);
 
   useEffect(() => { if (visible) { setOpen(null); load(); } }, [visible, load]);
+  useEffect(() => {
+    if (open) listReceipts(open.id).then(setReceipts);
+    else setReceipts([]);
+  }, [open?.id]);
+
+  const attach = async () => {
+    if (!open) return;
+    setUploading(true);
+    const r = await pickAndUploadReceipt(open.id);
+    if (r) setReceipts(await listReceipts(open.id));
+    setUploading(false);
+  };
+  const removeReceipt = async (r: Receipt & { url: string }) => {
+    await deleteReceipt(r);
+    setReceipts((rs) => rs.filter((x) => x.id !== r.id));
+  };
 
   const patch = async (id: string, fields: Partial<Txn>) => {
     await supabase.from("transactions").update(fields).eq("id", id);
@@ -128,6 +147,24 @@ export default function TransactionsModal({ visible, onClose, title, categoryId,
                   onEndEditing={(e) => patch(open.id, { tax_note: e.nativeEvent.text || null })}
                 />
               )}
+
+              <Text style={styles.dLabel}>🧾 Receipts & invoices</Text>
+              {receipts.map((r) => (
+                <View key={r.id} style={styles.receiptRow}>
+                  <Pressable style={{ flex: 1 }} onPress={() => window.open(r.url, "_blank")}>
+                    <Text style={styles.receiptLink}>
+                      {r.mime_type.includes("pdf") ? "📄" : "🖼️"} {r.storage_path.split("/").pop()}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => removeReceipt(r)}>
+                    <Text style={styles.receiptDelete}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <Pressable onPress={attach} disabled={uploading}
+                style={({ pressed }) => [styles.attachBtn, pressed && styles.pressed]}>
+                <Text style={styles.attachText}>{uploading ? "Uploading…" : "＋ Attach photo or PDF"}</Text>
+              </Pressable>
 
               <Text style={styles.dLabel}>Notes</Text>
               <TextInput
@@ -210,4 +247,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 12, fontSize: 14, marginTop: 8,
   },
   notesInput: { minHeight: 70, textAlignVertical: "top" },
+  receiptRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#1c1f2e", borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginTop: 6 },
+  receiptLink: { color: "#7c83ff", fontSize: 13 },
+  receiptDelete: { color: "#565b73", fontSize: 15, paddingHorizontal: 6 },
+  attachBtn: { backgroundColor: "#232636", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 8 },
+  attachText: { color: "#e8e9f0", fontSize: 13, fontWeight: "600" },
 });
